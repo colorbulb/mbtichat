@@ -1,0 +1,240 @@
+.dev-tools-toggle {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  z-index: 9998;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dev-tools-toggle:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+}
+
+.dev-tools-panel {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 90%;
+  max-width: 600px;
+  max-height: 80vh;
+  background: white;
+  border-radius: 15px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.dev-tools-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 15px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.dev-tools-header h3 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.dev-tools-close {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.dev-tools-close:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: rotate(90deg);
+}
+
+.dev-tools-content {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.dev-tools-section {
+  margin-bottom: 25px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.dev-tools-section:last-child {
+  border-bottom: none;
+}
+
+.dev-tools-section h4 {
+  margin: 0 0 15px 0;
+  color: #333;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.dev-tools-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.dev-tools-section-header h4 {
+  margin: 0;
+}
+
+.dev-tools-info {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 10px;
+}
+
+.dev-tools-info pre {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #333;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.dev-tools-logs {
+  background: #1e1e1e;
+  border-radius: 8px;
+  padding: 10px;
+  max-height: 300px;
+  overflow-y: auto;
+  font-family: 'Courier New', monospace;
+  font-size: 0.8rem;
+}
+
+.dev-tools-log {
+  padding: 5px 10px;
+  margin-bottom: 5px;
+  border-radius: 4px;
+  display: flex;
+  gap: 10px;
+}
+
+.dev-tools-log-log {
+  background: rgba(255, 255, 255, 0.05);
+  color: #d4d4d4;
+}
+
+.dev-tools-log-error {
+  background: rgba(255, 0, 0, 0.1);
+  color: #ff6b6b;
+}
+
+.dev-tools-log-warn {
+  background: rgba(255, 193, 7, 0.1);
+  color: #ffc107;
+}
+
+.dev-tools-log-time {
+  color: #888;
+  min-width: 80px;
+}
+
+.dev-tools-log-message {
+  flex: 1;
+  word-break: break-word;
+}
+
+.dev-tools-empty {
+  color: #888;
+  text-align: center;
+  padding: 20px;
+  font-style: italic;
+}
+
+.dev-tools-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dev-tools-btn {
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.dev-tools-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.dev-tools-btn-danger {
+  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+}
+
+.dev-tools-btn-danger:hover {
+  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
+}
+
+.dev-tools-btn-small {
+  padding: 5px 12px;
+  background: #f0f0f0;
+  color: #333;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: all 0.2s ease;
+}
+
+.dev-tools-btn-small:hover {
+  background: #e0e0e0;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .dev-tools-panel {
+    width: 95%;
+    max-height: 90vh;
+    bottom: 10px;
+    right: 10px;
+  }
+
+  .dev-tools-toggle {
+    bottom: 10px;
+    right: 10px;
+    width: 45px;
+    height: 45px;
+    font-size: 1.3rem;
+  }
+}
+

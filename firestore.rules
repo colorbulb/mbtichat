@@ -1,0 +1,49 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // ============================================
+    // USERS COLLECTION
+    // ============================================
+    
+    // Users collection - all authenticated users can read (for dating app, users need to see each other)
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAuthenticated(); // Frontend validates role before write
+    }
+    
+    // ============================================
+    // CHATS COLLECTION
+    // ============================================
+    
+    // Chats collection - all authenticated users can read and write
+    match /chats/{chatId} {
+      allow read, write: if isAuthenticated();
+      
+      // Messages subcollection - all authenticated users can read and write
+      match /messages/{messageId} {
+        allow read, write: if isAuthenticated();
+      }
+    }
+    
+    // ============================================
+    // PERSONALITY PHRASES COLLECTION
+    // ============================================
+    
+    // Personality phrases - all authenticated users can read, only admins can write
+    match /personality_phrases/{mbti} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated(); // Frontend validates admin role
+    }
+    
+    // Default: deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

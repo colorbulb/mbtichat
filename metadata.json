@@ -1,0 +1,5 @@
+{
+  "name": "NE Date - MBTI Translator",
+  "description": "An instant messenger that translates your messages into the unique language and style of different MBTI personality types using Gemini AI.",
+  "requestFramePermissions": []
+}
