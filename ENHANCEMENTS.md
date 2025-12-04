@@ -1,5 +1,8 @@
 # NE Dating App - Comprehensive Enhancement Guide
 
+**Last Updated:** December 2024  
+**Version:** 1.0
+
 ## Table of Contents
 1. [UI/UX Enhancements for Desktop & Mobile](#uiux-enhancements-for-desktop--mobile)
 2. [Interactive Features to Make the App More Fun](#interactive-features-to-make-the-app-more-fun)
@@ -19,6 +22,8 @@ The app uses a dark theme with pink/purple gradient accents:
 ### Recommended Improvements
 
 #### 1.1 Color Contrast & Accessibility
+All color combinations should meet **WCAG AA standards** (4.5:1 for normal text, 3:1 for large text).
+
 | Issue | Current | Recommended |
 |-------|---------|-------------|
 | Text readability | Gray text on dark backgrounds can be hard to read | Use `text-gray-100` for primary text, `text-gray-300` for secondary |
@@ -54,10 +59,12 @@ Explorers (Orange): #f97316 → #ea580c /* Warmer orange */
 ### Recommended Improvements
 
 #### 2.1 Responsive Typography Scale
+Note: Minimum text size should be 14px (0.875rem) for body text to meet accessibility guidelines.
+
 ```css
 /* Mobile-first type scale */
---text-xs: 0.75rem;    /* 12px */
---text-sm: 0.875rem;   /* 14px */
+--text-xs: 0.75rem;    /* 12px - use only for decorative/supplementary text */
+--text-sm: 0.875rem;   /* 14px - minimum for body text */
 --text-base: 1rem;     /* 16px - minimum for touch */
 --text-lg: 1.125rem;   /* 18px */
 --text-xl: 1.25rem;    /* 20px */
@@ -551,8 +558,11 @@ const CHAT_GAMES = [
 ```
 
 ### 4.3 Message Templates
+**Security Note:** When using template substitution with user data, always sanitize/escape user input to prevent XSS attacks. Use a trusted templating library or React's built-in escaping.
+
 ```tsx
 /* Quick replies for common situations */
+// Use React's JSX which auto-escapes, or a library like DOMPurify
 const TEMPLATES = {
   icebreakers: [
     "Hey! I noticed we're both {MBTI}. What do you think is the best and worst thing about being one?",
@@ -772,10 +782,10 @@ const ROOMS = [
 ## Implementation Priority
 
 ### Phase 1 - Quick Wins (1-2 weeks)
-1. ✅ Responsive improvements (breakpoints, spacing)
-2. ✅ Touch target sizes
-3. ✅ Loading skeletons
-4. ✅ Safe area handling
+1. Responsive improvements (breakpoints, spacing)
+2. Touch target sizes
+3. Loading skeletons
+4. Safe area handling
 5. Question of the Day
 6. Shared interests highlight
 
