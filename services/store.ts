@@ -1,4 +1,4 @@
-import { User, ChatRoom, ChatMessage, MessageType, IcebreakerTemplate, ChatStats } from '../types';
+import { User, ChatRoom, ChatMessage, MessageType, IcebreakerTemplate, ChatStats, BadgeTemplate, DailyQuestion, ChatGameTemplate, SuperLike, CompatibilityResult, GameType, ChatGameData } from '../types';
 import { MBTI_PROFILES } from '../constants';
 import { auth, db, storage } from './firebase';
 import { 
@@ -2186,6 +2186,572 @@ class FirebaseStore {
     } catch (error: any) {
       console.error('Get conversation starters error:', error);
       return [];
+    }
+  }
+
+  // =====================================
+  // GAMIFICATION FEATURES
+  // =====================================
+
+  // --- Badge Templates (Admin) ---
+  
+  async getAllBadgeTemplates(): Promise<BadgeTemplate[]> {
+    try {
+      const templatesRef = collection(db, 'badge_templates');
+      const snapshot = await getDocs(templatesRef);
+      return snapshot.docs.map(docSnap => ({
+        id: docSnap.id,
+        ...docSnap.data(),
+        createdAt: docSnap.data().createdAt?.toMillis?.() || Date.now()
+      } as BadgeTemplate));
+    } catch (error: any) {
+      console.error('Get all badge templates error:', error);
+      return [];
+    }
+  }
+
+  async createBadgeTemplate(badge: Omit<BadgeTemplate, 'id' | 'createdAt'>): Promise<string> {
+    try {
+      const templatesRef = collection(db, 'badge_templates');
+      const docRef = await addDoc(templatesRef, {
+        ...badge,
+        createdAt: serverTimestamp()
+      });
+      return docRef.id;
+    } catch (error: any) {
+      console.error('Create badge template error:', error);
+      throw error;
+    }
+  }
+
+  async updateBadgeTemplate(templateId: string, updates: Partial<BadgeTemplate>): Promise<void> {
+    try {
+      const refDoc = doc(db, 'badge_templates', templateId);
+      const data: any = { ...updates };
+      delete data.id;
+      await updateDoc(refDoc, data);
+    } catch (error: any) {
+      console.error('Update badge template error:', error);
+      throw error;
+    }
+  }
+
+  async deleteBadgeTemplate(templateId: string): Promise<void> {
+    try {
+      await deleteDoc(doc(db, 'badge_templates', templateId));
+    } catch (error: any) {
+      console.error('Delete badge template error:', error);
+      throw error;
+    }
+  }
+
+  // --- User Badges & XP ---
+  
+  async awardBadge(userId: string, badgeId: string): Promise<void> {
+    try {
+      const userRef = doc(db, 'users', userId);
+      const userDoc = await getDoc(userRef);
+      if (!userDoc.exists()) return;
+      
+      const userData = userDoc.data();
+      const currentBadges = userData.badges || [];
+      
+      if (!currentBadges.includes(badgeId)) {
+        await updateDoc(userRef, {
+          badges: [...currentBadges, badgeId]
+        });
+      }
+    } catch (error: any) {
+      console.error('Award badge error:', error);
+      throw error;
+    }
+  }
+
+  async addXP(userId: string, amount: number): Promise<{ newXP: number; newLevel: number; leveledUp: boolean }> {
+    try {
+      const userRef = doc(db, 'users', userId);
+      const userDoc = await getDoc(userRef);
+      if (!userDoc.exists()) throw new Error('User not found');
+      
+      const userData = userDoc.data();
+      const currentXP = userData.xp || 0;
+      const currentLevel = userData.level || 1;
+      const newXP = currentXP + amount;
+      
+      // Level up formula: 100 * level^1.5 XP needed for next level
+      const xpForNextLevel = Math.floor(100 * Math.pow(currentLevel, 1.5));
+      const leveledUp = newXP >= xpForNextLevel;
+      const newLevel = leveledUp ? currentLevel + 1 : currentLevel;
+      const remainingXP = leveledUp ? newXP - xpForNextLevel : newXP;
+      
+      await updateDoc(userRef, {
+        xp: remainingXP,
+        level: newLevel
+      });
+      
+      // Return the stored XP value (remaining after level up) and indicate total XP earned
+      return { newXP: remainingXP, newLevel, leveledUp };
+    } catch (error: any) {
+      console.error('Add XP error:', error);
+      throw error;
+    }
+  }
+
+  async updateLoginStreak(userId: string): Promise<{ streak: number; isNewDay: boolean }> {
+    try {
+      const userRef = doc(db, 'users', userId);
+      const userDoc = await getDoc(userRef);
+      if (!userDoc.exists()) throw new Error('User not found');
+      
+      const userData = userDoc.data();
+      const today = new Date().toISOString().split('T')[0];
+      const lastLoginDate = userData.lastLoginDate || '';
+      const currentStreak = userData.streak || 0;
+      
+      let newStreak = currentStreak;
+      let isNewDay = false;
+      
+      if (lastLoginDate !== today) {
+        isNewDay = true;
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = yesterday.toISOString().split('T')[0];
+        
+        if (lastLoginDate === yesterdayStr) {
+          // Consecutive day - increase streak
+          newStreak = currentStreak + 1;
+        } else {
+          // Streak broken - reset to 1
+          newStreak = 1;
+        }
+        
+        await updateDoc(userRef, {
+          streak: newStreak,
+          lastLoginDate: today
+        });
+        
+        // Award XP for daily login
+        await this.addXP(userId, 10 + (newStreak * 2)); // Bonus XP for streak
+      }
+      
+      return { streak: newStreak, isNewDay };
+    } catch (error: any) {
+      console.error('Update login streak error:', error);
+      throw error;
+    }
+  }
+
+  // --- Daily Questions (Admin) ---
+  
+  async getAllDailyQuestions(): Promise<DailyQuestion[]> {
+    try {
+      const questionsRef = collection(db, 'daily_questions');
+      const snapshot = await getDocs(questionsRef);
+      return snapshot.docs.map(docSnap => ({
+        id: docSnap.id,
+        ...docSnap.data(),
+        createdAt: docSnap.data().createdAt?.toMillis?.() || Date.now()
+      } as DailyQuestion));
+    } catch (error: any) {
+      console.error('Get all daily questions error:', error);
+      return [];
+    }
+  }
+
+  async createDailyQuestion(question: Omit<DailyQuestion, 'id' | 'createdAt'>): Promise<string> {
+    try {
+      const questionsRef = collection(db, 'daily_questions');
+      const docRef = await addDoc(questionsRef, {
+        ...question,
+        createdAt: serverTimestamp()
+      });
+      return docRef.id;
+    } catch (error: any) {
+      console.error('Create daily question error:', error);
+      throw error;
+    }
+  }
+
+  async updateDailyQuestion(questionId: string, updates: Partial<DailyQuestion>): Promise<void> {
+    try {
+      const refDoc = doc(db, 'daily_questions', questionId);
+      const data: any = { ...updates };
+      delete data.id;
+      await updateDoc(refDoc, data);
+    } catch (error: any) {
+      console.error('Update daily question error:', error);
+      throw error;
+    }
+  }
+
+  async deleteDailyQuestion(questionId: string): Promise<void> {
+    try {
+      await deleteDoc(doc(db, 'daily_questions', questionId));
+    } catch (error: any) {
+      console.error('Delete daily question error:', error);
+      throw error;
+    }
+  }
+
+  async getTodaysDailyQuestion(): Promise<DailyQuestion | null> {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const questionsRef = collection(db, 'daily_questions');
+      const q = query(questionsRef, where('activeDate', '==', today), where('isActive', '==', true));
+      const snapshot = await getDocs(q);
+      
+      if (!snapshot.empty) {
+        const docSnap = snapshot.docs[0];
+        return {
+          id: docSnap.id,
+          ...docSnap.data(),
+          createdAt: docSnap.data().createdAt?.toMillis?.() || Date.now()
+        } as DailyQuestion;
+      }
+      
+      // If no specific question for today, get a random active one
+      const allQ = query(questionsRef, where('isActive', '==', true));
+      const allSnapshot = await getDocs(allQ);
+      if (!allSnapshot.empty) {
+        const randomIndex = Math.floor(Math.random() * allSnapshot.docs.length);
+        const docSnap = allSnapshot.docs[randomIndex];
+        return {
+          id: docSnap.id,
+          ...docSnap.data(),
+          createdAt: docSnap.data().createdAt?.toMillis?.() || Date.now()
+        } as DailyQuestion;
+      }
+      
+      return null;
+    } catch (error: any) {
+      console.error('Get todays daily question error:', error);
+      return null;
+    }
+  }
+
+  async answerDailyQuestion(userId: string, questionId: string, answer: string): Promise<void> {
+    try {
+      const userRef = doc(db, 'users', userId);
+      const userDoc = await getDoc(userRef);
+      if (!userDoc.exists()) throw new Error('User not found');
+      
+      const userData = userDoc.data();
+      const answers = userData.dailyQuestionAnswers || [];
+      
+      // Check if already answered today's question
+      const alreadyAnswered = answers.some((a: any) => a.questionId === questionId);
+      if (alreadyAnswered) return;
+      
+      await updateDoc(userRef, {
+        dailyQuestionAnswers: [...answers, {
+          questionId,
+          answer,
+          timestamp: Date.now()
+        }]
+      });
+      
+      // Award XP for answering
+      await this.addXP(userId, 15);
+    } catch (error: any) {
+      console.error('Answer daily question error:', error);
+      throw error;
+    }
+  }
+
+  // --- Super Like ---
+  
+  async sendSuperLike(fromUserId: string, toUserId: string): Promise<boolean> {
+    try {
+      // Check if already super-liked today
+      const superLikesRef = collection(db, 'super_likes');
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayTs = today.getTime();
+      
+      const q = query(superLikesRef, 
+        where('fromUserId', '==', fromUserId),
+        where('toUserId', '==', toUserId),
+        where('timestamp', '>=', todayTs)
+      );
+      const existing = await getDocs(q);
+      
+      if (!existing.empty) {
+        return false; // Already super-liked today
+      }
+      
+      // Create super like
+      await addDoc(superLikesRef, {
+        fromUserId,
+        toUserId,
+        timestamp: Date.now()
+      });
+      
+      // Update counts
+      const fromRef = doc(db, 'users', fromUserId);
+      const toRef = doc(db, 'users', toUserId);
+      
+      const fromDoc = await getDoc(fromRef);
+      const toDoc = await getDoc(toRef);
+      
+      if (fromDoc.exists()) {
+        await updateDoc(fromRef, {
+          superLikesGiven: (fromDoc.data().superLikesGiven || 0) + 1
+        });
+      }
+      
+      if (toDoc.exists()) {
+        await updateDoc(toRef, {
+          superLikesReceived: (toDoc.data().superLikesReceived || 0) + 1
+        });
+      }
+      
+      // Award XP
+      await this.addXP(fromUserId, 5);
+      
+      return true;
+    } catch (error: any) {
+      console.error('Send super like error:', error);
+      throw error;
+    }
+  }
+
+  async getSuperLikesReceived(userId: string): Promise<SuperLike[]> {
+    try {
+      const superLikesRef = collection(db, 'super_likes');
+      const q = query(superLikesRef, where('toUserId', '==', userId), orderBy('timestamp', 'desc'));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(docSnap => ({
+        id: docSnap.id,
+        ...docSnap.data()
+      } as SuperLike));
+    } catch (error: any) {
+      console.error('Get super likes received error:', error);
+      return [];
+    }
+  }
+
+  // --- Compatibility Score ---
+  
+  /**
+   * Calculates MBTI compatibility between two personality types.
+   * 
+   * The compatibility matrix includes the top 6 most compatible types for each MBTI.
+   * Types not in the matrix will fall back to a default 60% score, representing
+   * moderate compatibility with room for growth. This is an intentional simplification
+   * to keep the matrix manageable while covering the most significant pairings.
+   * 
+   * Scores are based on cognitive function theory and common MBTI compatibility research.
+   */
+  calculateCompatibility(user1MBTI: string, user2MBTI: string): CompatibilityResult {
+    // MBTI compatibility matrix (top 6 compatible types per personality)
+    // Unlisted pairings default to 60% - moderate compatibility
+    const compatibilityMatrix: { [key: string]: { [key: string]: number } } = {
+      // Analysts
+      'INTJ': { 'ENFP': 95, 'ENTP': 90, 'INFJ': 85, 'INFP': 80, 'ENTJ': 75, 'INTJ': 70 },
+      'INTP': { 'ENTJ': 95, 'ENFJ': 90, 'INFJ': 85, 'INTJ': 80, 'ENTP': 75, 'INTP': 70 },
+      'ENTJ': { 'INTP': 95, 'INFP': 90, 'ISTP': 85, 'INTJ': 80, 'ENTP': 75, 'ENTJ': 70 },
+      'ENTP': { 'INFJ': 95, 'INTJ': 90, 'ENFJ': 85, 'INTP': 80, 'ENTJ': 75, 'ENTP': 70 },
+      // Diplomats
+      'INFJ': { 'ENTP': 95, 'ENFP': 90, 'INTJ': 85, 'INFP': 80, 'ENFJ': 75, 'INFJ': 70 },
+      'INFP': { 'ENFJ': 95, 'ENTJ': 90, 'INFJ': 85, 'ENFP': 80, 'INTP': 75, 'INFP': 70 },
+      'ENFJ': { 'INFP': 95, 'ISFP': 90, 'INTP': 85, 'ENFP': 80, 'INFJ': 75, 'ENFJ': 70 },
+      'ENFP': { 'INFJ': 95, 'INTJ': 90, 'ENFJ': 85, 'INFP': 80, 'ENTP': 75, 'ENFP': 70 },
+      // Sentinels
+      'ISTJ': { 'ESFP': 95, 'ESTP': 90, 'ISFJ': 85, 'ESTJ': 80, 'ISTP': 75, 'ISTJ': 70 },
+      'ISFJ': { 'ESTP': 95, 'ESFP': 90, 'ISTJ': 85, 'ESFJ': 80, 'ISFP': 75, 'ISFJ': 70 },
+      'ESTJ': { 'ISFP': 95, 'ISTP': 90, 'ISTJ': 85, 'ESFJ': 80, 'ESTP': 75, 'ESTJ': 70 },
+      'ESFJ': { 'ISTP': 95, 'ISFP': 90, 'ISFJ': 85, 'ESTJ': 80, 'ESFP': 75, 'ESFJ': 70 },
+      // Explorers
+      'ISTP': { 'ESFJ': 95, 'ESTJ': 90, 'ISTJ': 85, 'ISFP': 80, 'ESTP': 75, 'ISTP': 70 },
+      'ISFP': { 'ESTJ': 95, 'ESFJ': 90, 'ENFJ': 85, 'ISTP': 80, 'ESFP': 75, 'ISFP': 70 },
+      'ESTP': { 'ISFJ': 95, 'ISTJ': 90, 'ESFP': 85, 'ISTP': 80, 'ESTJ': 75, 'ESTP': 70 },
+      'ESFP': { 'ISTJ': 95, 'ISFJ': 90, 'ESTP': 85, 'ISFP': 80, 'ESFJ': 75, 'ESFP': 70 }
+    };
+    
+    const score = compatibilityMatrix[user1MBTI]?.[user2MBTI] || 
+                  compatibilityMatrix[user2MBTI]?.[user1MBTI] || 
+                  60; // Default moderate compatibility
+    
+    const profile1 = MBTI_PROFILES.find(p => p.code === user1MBTI);
+    const profile2 = MBTI_PROFILES.find(p => p.code === user2MBTI);
+    
+    const strengths: string[] = [];
+    const challenges: string[] = [];
+    const tips: string[] = [];
+    
+    if (score >= 90) {
+      strengths.push('Excellent natural chemistry');
+      strengths.push('Deep mutual understanding');
+      tips.push('Embrace your differences as they complement each other');
+    } else if (score >= 75) {
+      strengths.push('Good communication potential');
+      strengths.push('Shared values likely');
+      tips.push('Focus on your common interests');
+    } else if (score >= 60) {
+      strengths.push('Opportunity for growth');
+      challenges.push('May need extra effort to understand each other');
+      tips.push('Practice active listening');
+    } else {
+      challenges.push('Different approaches to life');
+      challenges.push('Communication styles may clash');
+      tips.push('Patience and understanding are key');
+    }
+    
+    if (profile1?.group === profile2?.group) {
+      strengths.push(`Both ${profile1?.group || 'similar types'} - shared thinking style`);
+    } else {
+      challenges.push('Different cognitive approaches');
+      tips.push('Learn from each other\'s perspectives');
+    }
+    
+    return { score, strengths, challenges, tips };
+  }
+
+  // --- Chat Games (Admin) ---
+  
+  async getAllChatGameTemplates(): Promise<ChatGameTemplate[]> {
+    try {
+      const templatesRef = collection(db, 'chat_game_templates');
+      const snapshot = await getDocs(templatesRef);
+      return snapshot.docs.map(docSnap => ({
+        id: docSnap.id,
+        ...docSnap.data(),
+        createdAt: docSnap.data().createdAt?.toMillis?.() || Date.now()
+      } as ChatGameTemplate));
+    } catch (error: any) {
+      console.error('Get all chat game templates error:', error);
+      return [];
+    }
+  }
+
+  async createChatGameTemplate(template: Omit<ChatGameTemplate, 'id' | 'createdAt'>): Promise<string> {
+    try {
+      const templatesRef = collection(db, 'chat_game_templates');
+      const docRef = await addDoc(templatesRef, {
+        ...template,
+        createdAt: serverTimestamp()
+      });
+      return docRef.id;
+    } catch (error: any) {
+      console.error('Create chat game template error:', error);
+      throw error;
+    }
+  }
+
+  async updateChatGameTemplate(templateId: string, updates: Partial<ChatGameTemplate>): Promise<void> {
+    try {
+      const refDoc = doc(db, 'chat_game_templates', templateId);
+      const data: any = { ...updates };
+      delete data.id;
+      await updateDoc(refDoc, data);
+    } catch (error: any) {
+      console.error('Update chat game template error:', error);
+      throw error;
+    }
+  }
+
+  async deleteChatGameTemplate(templateId: string): Promise<void> {
+    try {
+      await deleteDoc(doc(db, 'chat_game_templates', templateId));
+    } catch (error: any) {
+      console.error('Delete chat game template error:', error);
+      throw error;
+    }
+  }
+
+  async getActiveChatGames(): Promise<ChatGameTemplate[]> {
+    try {
+      const templatesRef = collection(db, 'chat_game_templates');
+      const q = query(templatesRef, where('isActive', '==', true));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(docSnap => ({
+        id: docSnap.id,
+        ...docSnap.data(),
+        createdAt: docSnap.data().createdAt?.toMillis?.() || Date.now()
+      } as ChatGameTemplate));
+    } catch (error: any) {
+      console.error('Get active chat games error:', error);
+      return [];
+    }
+  }
+
+  async sendGameMessage(chatId: string, senderId: string, gameType: GameType, gameData: ChatGameData): Promise<ChatMessage> {
+    try {
+      const messagesRef = collection(db, 'chats', chatId, 'messages');
+      
+      const messageData: any = {
+        senderId,
+        type: 'game',
+        timestamp: serverTimestamp(),
+        readBy: [senderId],
+        isTranslating: false,
+        text: `Started a ${gameType.replace(/_/g, ' ')} game!`,
+        gameType,
+        gameData
+      };
+
+      const docRef = await addDoc(messagesRef, messageData);
+
+      // Update chat's lastMessage
+      const chatRef = doc(db, 'chats', chatId);
+      await updateDoc(chatRef, {
+        lastMessage: {
+          id: docRef.id,
+          senderId,
+          type: 'game',
+          timestamp: serverTimestamp(),
+          readBy: [senderId],
+          text: messageData.text
+        }
+      });
+
+      // Award XP for playing games
+      await this.addXP(senderId, 10);
+
+      return {
+        id: docRef.id,
+        senderId,
+        type: 'game',
+        text: messageData.text,
+        timestamp: Date.now(),
+        readBy: [senderId],
+        gameType,
+        gameData
+      };
+    } catch (error: any) {
+      console.error('Send game message error:', error);
+      throw error;
+    }
+  }
+
+  async answerGameMessage(chatId: string, messageId: string, userId: string, answer: string): Promise<void> {
+    try {
+      const messageRef = doc(db, 'chats', chatId, 'messages', messageId);
+      const messageDoc = await getDoc(messageRef);
+      
+      if (!messageDoc.exists()) throw new Error('Message not found');
+      
+      const messageData = messageDoc.data();
+      const gameData = messageData.gameData || {};
+      
+      if (messageData.senderId === userId) {
+        gameData.senderAnswer = answer;
+      } else {
+        gameData.receiverAnswer = answer;
+      }
+      
+      // Check if game is complete
+      if (gameData.senderAnswer && gameData.receiverAnswer) {
+        gameData.isComplete = true;
+        // Award XP to both players
+        await this.addXP(messageData.senderId, 15);
+        await this.addXP(userId, 15);
+      }
+      
+      await updateDoc(messageRef, { gameData });
+    } catch (error: any) {
+      console.error('Answer game message error:', error);
+      throw error;
     }
   }
 }
