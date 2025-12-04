@@ -11,11 +11,14 @@
   "dependencies": {
     "@google/genai": "^1.30.0",
     "bootstrap": "^5.3.8",
+    "browser-image-compression": "^2.0.2",
     "firebase": "^12.6.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "react-router-dom": "^7.9.6",
     "react-transition-group": "^4.4.5",
-    "reactstrap": "^9.2.3"
+    "reactstrap": "^9.2.3",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

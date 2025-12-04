@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { User, ChatRoom } from '../types';
 import { store } from '../services/store';
+import { ChatListSkeleton } from './LoadingSkeleton';
+import { useToast } from './Toast';
 
 export const ChatListScreen: React.FC<{
   currentUser: User;
   onSelectChat: (chatId: string, partnerId: string) => void;
 }> = ({ currentUser, onSelectChat }) => {
+  const { showToast } = useToast();
   const [chats, setChats] = useState<ChatRoom[]>([]);
   const [users, setUsers] = useState<Map<string, User>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -88,17 +91,30 @@ export const ChatListScreen: React.FC<{
 
   if (loading) {
     return (
-      <div className="p-4 text-center text-gray-400">
-        Loading chats...
+      <div className="p-4 space-y-2 pb-20 md:pb-4">
+        {[1, 2, 3, 4, 5].map(i => (
+          <ChatListSkeleton key={i} />
+        ))}
       </div>
     );
   }
 
   if (chats.length === 0) {
     return (
-      <div className="p-4 text-center text-gray-400">
-        <div className="text-4xl mb-4">💬</div>
-        <p>No chats yet. Start a conversation!</p>
+      <div className="p-4 text-center py-20">
+        <div className="dating-card rounded-xl p-12 max-w-md mx-auto">
+          <div className="text-6xl mb-4">💬</div>
+          <h3 className="text-xl font-bold text-white mb-2">No conversations yet</h3>
+          <p className="text-gray-400 mb-6">Start chatting with people you discover!</p>
+          <button
+            onClick={() => {
+              window.location.href = '/users';
+            }}
+            className="dating-button-primary px-6 py-3 rounded-xl text-white font-semibold"
+          >
+            Discover People
+          </button>
+        </div>
       </div>
     );
   }
@@ -127,7 +143,7 @@ export const ChatListScreen: React.FC<{
                 onSelectChat(chat.id, partnerId);
               }
             }}
-            className="bg-gray-800 rounded-xl p-4 border border-gray-700 hover:border-pink-500 transition-all cursor-pointer"
+            className="dating-card rounded-xl p-4 cursor-pointer"
           >
             <div className="flex items-center gap-4">
               {/* Avatar */}
@@ -135,10 +151,10 @@ export const ChatListScreen: React.FC<{
                 <img
                   src={partner?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${partner?.username || 'user'}`}
                   alt={partner?.username || 'User'}
-                  className="w-14 h-14 rounded-full bg-gray-700 object-cover"
+                  className="w-14 h-14 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 object-cover ring-2 ring-pink-400/50 shadow-lg"
                 />
                 {partner?.isOnline && (
-                  <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 rounded-full border-2 border-gray-800"></div>
+                  <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-400 rounded-full border-2 border-gray-900 shadow-lg shadow-green-400/50 animate-pulse"></div>
                 )}
               </div>
 
@@ -148,7 +164,7 @@ export const ChatListScreen: React.FC<{
                   <h3 className="font-bold text-white truncate">
                     {partner?.username || 'Unknown User'}
                     {partner && (
-                      <span className="ml-2 text-xs bg-gray-700 px-2 py-0.5 rounded text-gray-300">
+                      <span className="ml-2 text-xs bg-gradient-to-r from-pink-500/20 to-purple-500/20 border border-pink-400/30 px-2 py-0.5 rounded-full text-pink-200 backdrop-blur-sm">
                         {partner.mbti}
                       </span>
                     )}
@@ -166,7 +182,7 @@ export const ChatListScreen: React.FC<{
 
               {/* Unread Indicator */}
               {isUnread && (
-                <div className="w-3 h-3 bg-pink-500 rounded-full flex-shrink-0"></div>
+                <div className="w-3 h-3 bg-gradient-to-r from-pink-500 to-purple-500 rounded-full flex-shrink-0 shadow-lg shadow-pink-500/50 animate-pulse"></div>
               )}
             </div>
           </div>

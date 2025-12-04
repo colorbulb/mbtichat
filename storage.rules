@@ -7,6 +7,13 @@ service firebase.storage {
       return request.auth != null;
     }
     
+    // Admin uploads - authenticated users can upload (admin validation done in app)
+    // Note: Storage rules can't check Firestore, so we validate admin in app code
+    match /admin/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated(); // App validates admin status before upload
+    }
+    
     // User avatars - users can upload their own avatar
     match /avatars/{userId}/{allPaths=**} {
       allow read: if isAuthenticated();
@@ -16,6 +23,18 @@ service firebase.storage {
     // Chat images - any authenticated user can upload/read
     match /chats/{chatId}/images/{imageId} {
       allow read, write: if isAuthenticated();
+    }
+    
+    // User photos - users can upload their own photos
+    match /users/{userId}/photos/{photoId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // User audio recordings - users can upload their own audio
+    match /users/{userId}/audio/{audioId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.auth.uid == userId;
     }
     
     // Default: deny all other access
