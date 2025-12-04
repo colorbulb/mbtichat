@@ -8,6 +8,9 @@
  * - Multiple filters: MBTI Group, Gender, Age Range
  * - Visual user cards with MBTI, age, online status, and bio
  * - Empty state handling when no users match filters
+ * - Compatibility scores based on MBTI types
+ * - Super Like functionality
+ * - Daily Question display
  * 
  * Real-time Data:
  * - Uses `store.subscribeToAllUsers` for live updates
@@ -17,14 +20,9 @@
  * - Currently fetches ALL users and filters client-side
  * - For scale, should move filtering to backend (Firestore queries with indexed fields)
  * - Consider pagination or infinite scroll for large user bases
- * 
- * TODO:
- * - Add location/distance filter (common in dating apps)
- * - Implement pagination or infinite scroll
- * - Move filtering to backend queries for better performance
  */
 import React, { useState, useEffect } from 'react';
-import { User, MBTIGroup, Gender } from '../types';
+import { User, MBTIGroup, Gender, DailyQuestion, CompatibilityResult } from '../types';
 import { MBTI_PROFILES, GROUP_COLORS } from '../constants';
 import { store } from '../services/store';
 import { PhotoModal } from './PhotoModal';
@@ -53,6 +51,12 @@ export const DiscoverScreen: React.FC<{
   const [selectedHobbies, setSelectedHobbies] = useState<string[]>([]);
   const [selectedRedFlags, setSelectedRedFlags] = useState<string[]>([]);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<{ userId: string; index: number } | null>(null);
+  
+  // Gamification states
+  const [dailyQuestion, setDailyQuestion] = useState<DailyQuestion | null>(null);
+  const [dailyAnswer, setDailyAnswer] = useState<string>('');
+  const [superLikedUsers, setSuperLikedUsers] = useState<Set<string>>(new Set());
+  const [compatibilityCache, setCompatibilityCache] = useState<Map<string, CompatibilityResult>>(new Map());
 
   /**
    * Subscribes to real-time user updates from Firestore
@@ -75,6 +79,13 @@ export const DiscoverScreen: React.FC<{
         // Load match suggestions
         const suggestions = await store.getMatchSuggestions(currentUser.id, 5);
         setMatchSuggestions(suggestions);
+        
+        // Load daily question
+        const question = await store.getTodaysDailyQuestion();
+        setDailyQuestion(question);
+        
+        // Update login streak
+        await store.updateLoginStreak(currentUser.id);
       } catch (error) {
         console.error('Error loading filter data:', error);
       }
@@ -120,8 +131,130 @@ export const DiscoverScreen: React.FC<{
     return `${days}d ago`;
   };
 
+  // Get compatibility score with caching
+  const getCompatibility = (userMbti: string): CompatibilityResult => {
+    const cached = compatibilityCache.get(userMbti);
+    if (cached) {
+      return cached;
+    }
+    const result = store.calculateCompatibility(currentUser.mbti, userMbti);
+    // Update cache with a new Map copy for proper React state updates
+    setCompatibilityCache(prevCache => {
+      const newCache = new Map(prevCache);
+      newCache.set(userMbti, result);
+      return newCache;
+    });
+    return result;
+  };
+
+  // Handle super like
+  const handleSuperLike = async (userId: string, username: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (superLikedUsers.has(userId)) {
+      showToast(`You already super liked ${username} today`, 'info');
+      return;
+    }
+    try {
+      const success = await store.sendSuperLike(currentUser.id, userId);
+      if (success) {
+        setSuperLikedUsers(new Set(superLikedUsers.add(userId)));
+        showToast(`⭐ Super liked ${username}!`, 'success');
+      } else {
+        showToast(`You already super liked ${username} today`, 'info');
+      }
+    } catch (error) {
+      console.error('Super like error:', error);
+      showToast('Failed to send super like', 'error');
+    }
+  };
+
+  // Handle daily question answer
+  const handleAnswerDailyQuestion = async () => {
+    if (!dailyQuestion || !dailyAnswer.trim()) return;
+    try {
+      await store.answerDailyQuestion(currentUser.id, dailyQuestion.id, dailyAnswer.trim());
+      showToast('Thanks for answering! +15 XP 🎉', 'success');
+      setDailyQuestion(null);
+    } catch (error) {
+      console.error('Answer daily question error:', error);
+    }
+  };
+
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto pb-20 md:pb-8">
+      {/* Daily Question */}
+      {dailyQuestion && (
+        <div className="dating-card p-4 rounded-2xl mb-6 border-2 border-pink-500/50">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-2xl">💭</span>
+            <h3 className="text-lg font-bold bg-gradient-to-r from-pink-400 to-purple-400 bg-clip-text text-transparent">
+              Question of the Day
+            </h3>
+          </div>
+          <p className="text-white text-lg mb-4">{dailyQuestion.question}</p>
+          {dailyQuestion.options && dailyQuestion.options.length > 0 ? (
+            <div className="flex flex-wrap gap-2 mb-4">
+              {dailyQuestion.options.map((option, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setDailyAnswer(option)}
+                  className={`px-4 py-2 rounded-xl transition-all ${
+                    dailyAnswer === option
+                      ? 'bg-gradient-to-r from-pink-500 to-purple-500 text-white'
+                      : 'bg-white/10 text-gray-300 hover:bg-white/20'
+                  }`}
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <input
+              type="text"
+              value={dailyAnswer}
+              onChange={(e) => setDailyAnswer(e.target.value)}
+              placeholder="Type your answer..."
+              className="w-full bg-white/10 border border-pink-500/30 rounded-xl p-3 text-white mb-4"
+            />
+          )}
+          <button
+            onClick={handleAnswerDailyQuestion}
+            disabled={!dailyAnswer.trim()}
+            className="dating-button-primary px-6 py-2 rounded-xl text-white font-semibold disabled:opacity-50"
+          >
+            Submit Answer (+15 XP)
+          </button>
+        </div>
+      )}
+
+      {/* User Stats */}
+      <div className="dating-card p-4 rounded-2xl mb-6 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="text-center">
+            <div className="text-2xl">🔥</div>
+            <div className="text-xs text-gray-400">Streak</div>
+            <div className="text-white font-bold">{currentUser.streak || 0} days</div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl">⭐</div>
+            <div className="text-xs text-gray-400">Level</div>
+            <div className="text-white font-bold">{currentUser.level || 1}</div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl">💕</div>
+            <div className="text-xs text-gray-400">Super Likes</div>
+            <div className="text-white font-bold">{currentUser.superLikesReceived || 0}</div>
+          </div>
+        </div>
+        {currentUser.badges && currentUser.badges.length > 0 && (
+          <div className="flex gap-1">
+            {currentUser.badges.slice(0, 3).map((badgeId, idx) => (
+              <span key={idx} className="text-xl" title={badgeId}>🏆</span>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Filters */}
       <div className="dating-card p-4 rounded-2xl mb-8">
         <div className="flex flex-wrap gap-4 items-end mb-4">
@@ -346,6 +479,21 @@ export const DiscoverScreen: React.FC<{
                       <span className="text-xl">💕</span>
                     </div>
                   </div>
+                  {/* Compatibility score badge */}
+                  <div className="absolute top-4 left-4">
+                    {(() => {
+                      const compat = getCompatibility(user.mbti);
+                      const colorClass = compat.score >= 80 ? 'from-green-500 to-emerald-500' : 
+                                        compat.score >= 60 ? 'from-yellow-500 to-amber-500' : 
+                                        'from-red-500 to-orange-500';
+                      return (
+                        <div className={`bg-gradient-to-r ${colorClass} px-2 py-1 rounded-full text-white text-xs font-bold shadow-lg flex items-center gap-1`}>
+                          <span>💕</span>
+                          <span>{compat.score}%</span>
+                        </div>
+                      );
+                    })()}
+                  </div>
                 </div>
 
                 <div className="p-5 space-y-3 flex-1 flex flex-col bg-gradient-to-b from-gray-900/95 to-gray-800/95">
@@ -353,7 +501,12 @@ export const DiscoverScreen: React.FC<{
                     <span className={`px-3 py-1 rounded-full border-2 text-xs font-bold shadow-lg ${groupColor} bg-white/10 backdrop-blur-sm`}>
                       {user.mbti}
                     </span>
-                    <span className="text-pink-300 text-xs font-semibold">{user.gender}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-pink-300 text-xs font-semibold">{user.gender}</span>
+                      {user.isVerified && (
+                        <span className="text-blue-400" title="Verified">✓</span>
+                      )}
+                    </div>
                   </div>
 
                   <div className="text-pink-200 text-xs flex items-center gap-1">
@@ -395,13 +548,24 @@ export const DiscoverScreen: React.FC<{
 
                   <div className="mt-auto pt-3 flex gap-2">
                     <button
+                      onClick={(e) => handleSuperLike(user.id, user.username, e)}
+                      className={`p-3 rounded-xl transition-all ${
+                        superLikedUsers.has(user.id)
+                          ? 'bg-yellow-500 text-white'
+                          : 'glass-effect border border-yellow-500/30 text-yellow-300 hover:bg-yellow-500/20'
+                      }`}
+                      title="Super Like"
+                    >
+                      ⭐
+                    </button>
+                    <button
                       onClick={(e) => {
                         e.stopPropagation();
                         navigate(`/user/${user.id}`);
                       }}
                       className="flex-1 glass-effect border border-pink-500/30 text-pink-300 hover:bg-pink-500/10 font-semibold py-3 rounded-xl transition-all text-sm"
                     >
-                      👁️ View Profile
+                      👁️ View
                     </button>
                     <button
                       onClick={(e) => {

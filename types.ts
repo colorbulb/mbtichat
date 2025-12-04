@@ -1,7 +1,9 @@
 
 export type MBTIGroup = 'Analysts' | 'Diplomats' | 'Sentinels' | 'Explorers';
 export type Gender = 'Male' | 'Female' | 'Non-binary' | 'Other';
-export type MessageType = 'text' | 'image' | 'sticker' | 'event' | 'private_date' | 'icebreaker';
+export type MessageType = 'text' | 'image' | 'sticker' | 'event' | 'private_date' | 'icebreaker' | 'game';
+export type BadgeType = 'ice_breaker' | 'all_star' | 'on_fire' | 'party_starter' | 'verified' | 'popular' | 'super_liker' | 'chatterbox';
+export type GameType = 'truth_or_dare' | 'would_you_rather' | 'compatibility_quiz' | 'this_or_that';
 
 export interface MBTIProfile {
   code: string;
@@ -44,6 +46,15 @@ export interface User {
   verificationBadge?: 'photo' | 'phone' | 'email'; // Type of verification
   // Profile views tracking
   profileViews?: { viewerId: string; timestamp: number }[]; // Who viewed this profile
+  // Gamification
+  badges?: string[]; // Array of earned badge IDs
+  xp?: number; // Experience points
+  level?: number; // User level
+  streak?: number; // Daily login streak
+  lastLoginDate?: string; // Last login date (YYYY-MM-DD)
+  superLikesGiven?: number; // Count of super likes given
+  superLikesReceived?: number; // Count of super likes received
+  dailyQuestionAnswers?: { questionId: string; answer: string; timestamp: number }[];
 }
 
 export interface ChatMessage {
@@ -64,6 +75,19 @@ export interface ChatMessage {
   icebreakerTitle?: string;
   icebreakerPrompt?: string;
   icebreakerCategory?: string;
+  // Game metadata (for type === 'game')
+  gameType?: GameType;
+  gameData?: ChatGameData;
+}
+
+// Chat game data structure
+export interface ChatGameData {
+  questionId?: string;
+  question?: string;
+  options?: string[];
+  senderAnswer?: string;
+  receiverAnswer?: string;
+  isComplete?: boolean;
 }
 
 export interface PrivateDate {
@@ -115,6 +139,54 @@ export interface ChatStats {
   consecutiveDays: number;
   lastMessageDate: number; // timestamp (ms)
   milestones: string[]; // e.g. ['messages_50', 'messages_100', 'streak_3']
+}
+
+// Admin-managed badge template
+export interface BadgeTemplate {
+  id: string;
+  name: string;
+  icon: string; // Emoji or icon URL
+  description: string;
+  type: BadgeType;
+  requiredXP?: number;
+  isActive: boolean;
+  createdAt: number;
+}
+
+// Daily Question managed by admin
+export interface DailyQuestion {
+  id: string;
+  question: string;
+  options?: string[]; // For multiple choice
+  isActive: boolean;
+  activeDate?: string; // YYYY-MM-DD - which day this question is active
+  createdAt: number;
+}
+
+// Chat game template managed by admin
+export interface ChatGameTemplate {
+  id: string;
+  type: GameType;
+  title: string;
+  questions: { question: string; options?: string[] }[];
+  isActive: boolean;
+  createdAt: number;
+}
+
+// Super Like record
+export interface SuperLike {
+  id: string;
+  fromUserId: string;
+  toUserId: string;
+  timestamp: number;
+}
+
+// Compatibility calculation result
+export interface CompatibilityResult {
+  score: number; // 0-100
+  strengths: string[];
+  challenges: string[];
+  tips: string[];
 }
 
 export interface Event {

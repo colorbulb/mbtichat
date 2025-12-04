@@ -16,7 +16,7 @@
  */
 import React, { useState, useEffect } from 'react';
 import { store } from '../services/store';
-import { User, ChatRoom, Gender, IcebreakerTemplate } from '../types';
+import { User, ChatRoom, Gender, IcebreakerTemplate, BadgeTemplate, DailyQuestion, ChatGameTemplate, GameType, BadgeType } from '../types';
 import { MBTI_PROFILES } from '../constants';
 import DevTools from './DevTools';
 import * as XLSX from 'xlsx';
@@ -40,12 +40,18 @@ import {
   Modal,
   ModalHeader,
   ModalBody,
-  ModalFooter
+  ModalFooter,
+  Nav,
+  NavItem,
+  NavLink,
+  TabContent,
+  TabPane
 } from 'reactstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
 export const AdminDashboard: React.FC = () => {
   console.log('🔍 [AdminDashboard] Component rendered');
+  const [activeTab, setActiveTab] = useState<string>('users');
   const [users, setUsers] = useState<User[]>([]);
   const [chats, setChats] = useState<ChatRoom[]>([]);
   const [selectedChat, setSelectedChat] = useState<ChatRoom | null>(null);
@@ -109,6 +115,21 @@ export const AdminDashboard: React.FC = () => {
   const [newIcebreakerTitle, setNewIcebreakerTitle] = useState<string>('');
   const [newIcebreakerPrompt, setNewIcebreakerPrompt] = useState<string>('');
   const [newIcebreakerCategory, setNewIcebreakerCategory] = useState<IcebreakerTemplate['category']>('get_to_know');
+
+  // Gamification States
+  const [showBadgesModal, setShowBadgesModal] = useState(false);
+  const [badges, setBadges] = useState<BadgeTemplate[]>([]);
+  const [newBadge, setNewBadge] = useState({ name: '', icon: '🏆', description: '', type: 'all_star' as BadgeType, requiredXP: 100 });
+
+  // Daily Questions State
+  const [showDailyQuestionsModal, setShowDailyQuestionsModal] = useState(false);
+  const [dailyQuestions, setDailyQuestions] = useState<DailyQuestion[]>([]);
+  const [newDailyQuestion, setNewDailyQuestion] = useState({ question: '', options: '', activeDate: '' });
+
+  // Chat Games State
+  const [showChatGamesModal, setShowChatGamesModal] = useState(false);
+  const [chatGames, setChatGames] = useState<ChatGameTemplate[]>([]);
+  const [newChatGame, setNewChatGame] = useState({ type: 'would_you_rather' as GameType, title: '', questions: '' });
 
   /**
    * Refreshes user and chat data from Firestore
@@ -730,6 +751,194 @@ export const AdminDashboard: React.FC = () => {
     }
   };
 
+  // --- Badges Management ---
+
+  const loadBadges = async () => {
+    try {
+      const allBadges = await store.getAllBadgeTemplates();
+      setBadges(allBadges);
+    } catch (error: any) {
+      setErrorMsg(`Error loading badges: ${error.message}`);
+    }
+  };
+
+  const handleOpenBadgesModal = async () => {
+    await loadBadges();
+    setShowBadgesModal(true);
+  };
+
+  const handleAddBadge = async () => {
+    if (!newBadge.name.trim() || !newBadge.description.trim()) return;
+    try {
+      await store.createBadgeTemplate({
+        name: newBadge.name.trim(),
+        icon: newBadge.icon,
+        description: newBadge.description.trim(),
+        type: newBadge.type,
+        requiredXP: newBadge.requiredXP,
+        isActive: true
+      });
+      setNewBadge({ name: '', icon: '🏆', description: '', type: 'all_star', requiredXP: 100 });
+      await loadBadges();
+      setSuccessMsg('Badge added!');
+      setTimeout(() => setSuccessMsg(''), 3000);
+    } catch (error: any) {
+      setErrorMsg(`Error adding badge: ${error.message}`);
+    }
+  };
+
+  const handleToggleBadgeActive = async (badge: BadgeTemplate) => {
+    try {
+      await store.updateBadgeTemplate(badge.id, { isActive: !badge.isActive });
+      await loadBadges();
+    } catch (error: any) {
+      setErrorMsg(`Error updating badge: ${error.message}`);
+    }
+  };
+
+  const handleDeleteBadge = async (badgeId: string) => {
+    try {
+      await store.deleteBadgeTemplate(badgeId);
+      await loadBadges();
+      setSuccessMsg('Badge deleted!');
+      setTimeout(() => setSuccessMsg(''), 3000);
+    } catch (error: any) {
+      setErrorMsg(`Error deleting badge: ${error.message}`);
+    }
+  };
+
+  // --- Daily Questions Management ---
+
+  const loadDailyQuestions = async () => {
+    try {
+      const allQuestions = await store.getAllDailyQuestions();
+      setDailyQuestions(allQuestions);
+    } catch (error: any) {
+      setErrorMsg(`Error loading daily questions: ${error.message}`);
+    }
+  };
+
+  const handleOpenDailyQuestionsModal = async () => {
+    await loadDailyQuestions();
+    setShowDailyQuestionsModal(true);
+  };
+
+  const handleAddDailyQuestion = async () => {
+    if (!newDailyQuestion.question.trim()) return;
+    try {
+      const options = newDailyQuestion.options.trim() 
+        ? newDailyQuestion.options.split(',').map(o => o.trim()).filter(o => o)
+        : undefined;
+      await store.createDailyQuestion({
+        question: newDailyQuestion.question.trim(),
+        options,
+        isActive: true,
+        activeDate: newDailyQuestion.activeDate || undefined
+      });
+      setNewDailyQuestion({ question: '', options: '', activeDate: '' });
+      await loadDailyQuestions();
+      setSuccessMsg('Daily question added!');
+      setTimeout(() => setSuccessMsg(''), 3000);
+    } catch (error: any) {
+      setErrorMsg(`Error adding daily question: ${error.message}`);
+    }
+  };
+
+  const handleToggleDailyQuestionActive = async (question: DailyQuestion) => {
+    try {
+      await store.updateDailyQuestion(question.id, { isActive: !question.isActive });
+      await loadDailyQuestions();
+    } catch (error: any) {
+      setErrorMsg(`Error updating daily question: ${error.message}`);
+    }
+  };
+
+  const handleDeleteDailyQuestion = async (questionId: string) => {
+    try {
+      await store.deleteDailyQuestion(questionId);
+      await loadDailyQuestions();
+      setSuccessMsg('Daily question deleted!');
+      setTimeout(() => setSuccessMsg(''), 3000);
+    } catch (error: any) {
+      setErrorMsg(`Error deleting daily question: ${error.message}`);
+    }
+  };
+
+  // --- Chat Games Management ---
+
+  const loadChatGames = async () => {
+    try {
+      const allGames = await store.getAllChatGameTemplates();
+      setChatGames(allGames);
+    } catch (error: any) {
+      setErrorMsg(`Error loading chat games: ${error.message}`);
+    }
+  };
+
+  const handleOpenChatGamesModal = async () => {
+    await loadChatGames();
+    setShowChatGamesModal(true);
+  };
+
+  const handleAddChatGame = async () => {
+    if (!newChatGame.title.trim() || !newChatGame.questions.trim()) return;
+    try {
+      // Parse questions - each line is a question, optionally with options after |
+      const questions = newChatGame.questions.split('\n').map(line => {
+        const parts = line.split('|');
+        const question = parts[0].trim();
+        const options = parts[1] ? parts[1].split(',').map(o => o.trim()).filter(o => o) : undefined;
+        return { question, options };
+      }).filter(q => q.question);
+
+      await store.createChatGameTemplate({
+        type: newChatGame.type,
+        title: newChatGame.title.trim(),
+        questions,
+        isActive: true
+      });
+      setNewChatGame({ type: 'would_you_rather', title: '', questions: '' });
+      await loadChatGames();
+      setSuccessMsg('Chat game added!');
+      setTimeout(() => setSuccessMsg(''), 3000);
+    } catch (error: any) {
+      setErrorMsg(`Error adding chat game: ${error.message}`);
+    }
+  };
+
+  const handleToggleChatGameActive = async (game: ChatGameTemplate) => {
+    try {
+      await store.updateChatGameTemplate(game.id, { isActive: !game.isActive });
+      await loadChatGames();
+    } catch (error: any) {
+      setErrorMsg(`Error updating chat game: ${error.message}`);
+    }
+  };
+
+  const handleDeleteChatGame = async (gameId: string) => {
+    try {
+      await store.deleteChatGameTemplate(gameId);
+      await loadChatGames();
+      setSuccessMsg('Chat game deleted!');
+      setTimeout(() => setSuccessMsg(''), 3000);
+    } catch (error: any) {
+      setErrorMsg(`Error deleting chat game: ${error.message}`);
+    }
+  };
+
+  // --- Award Badge to User ---
+
+  const handleAwardBadge = async (userId: string, badgeId: string) => {
+    try {
+      await store.awardBadge(userId, badgeId);
+      await refreshData();
+      setSuccessMsg('Badge awarded!');
+      setTimeout(() => setSuccessMsg(''), 3000);
+    } catch (error: any) {
+      setErrorMsg(`Error awarding badge: ${error.message}`);
+    }
+  };
+
   return (
     <>
       <DevTools />
@@ -738,27 +947,36 @@ export const AdminDashboard: React.FC = () => {
         <Col>
           <div className="d-flex justify-content-between align-items-center mb-4">
             <h1 className="text-danger mb-0">Master Admin Dashboard</h1>
-            <div className="d-flex gap-2">
-              <Button color="info" onClick={handleOpenPhrasesModal}>
-                Manage Personality Phrases
+            <div className="d-flex gap-2 flex-wrap">
+              <Button color="info" size="sm" onClick={handleOpenPhrasesModal}>
+                Personality Phrases
               </Button>
-              <Button color="success" onClick={handleOpenHobbiesModal}>
-                Manage Hobbies
+              <Button color="success" size="sm" onClick={handleOpenHobbiesModal}>
+                Hobbies
               </Button>
-              <Button color="warning" onClick={handleOpenRedFlagsModal}>
-                Manage Red Flags
+              <Button color="warning" size="sm" onClick={handleOpenRedFlagsModal}>
+                Red Flags
               </Button>
-              <Button color="secondary" onClick={handleOpenAudioQuestionsModal}>
-                Manage Audio Questions
+              <Button color="secondary" size="sm" onClick={handleOpenAudioQuestionsModal}>
+                Audio Questions
               </Button>
-              <Button color="primary" onClick={() => setShowExcelImportModal(true)}>
-                Import Phrases from Excel
+              <Button color="primary" size="sm" onClick={() => setShowExcelImportModal(true)}>
+                Import Excel
               </Button>
-              <Button color="info" onClick={handleOpenDatingCategoriesModal}>
-                Manage Dating Categories
+              <Button color="info" size="sm" onClick={handleOpenDatingCategoriesModal}>
+                Dating Categories
               </Button>
-              <Button color="danger" onClick={handleOpenIcebreakersModal}>
-                Manage Icebreakers
+              <Button color="danger" size="sm" onClick={handleOpenIcebreakersModal}>
+                Icebreakers
+              </Button>
+              <Button color="warning" size="sm" onClick={handleOpenBadgesModal}>
+                🏆 Badges
+              </Button>
+              <Button color="success" size="sm" onClick={handleOpenDailyQuestionsModal}>
+                📅 Daily Questions
+              </Button>
+              <Button color="primary" size="sm" onClick={handleOpenChatGamesModal}>
+                🎮 Chat Games
               </Button>
             </div>
           </div>
@@ -1701,6 +1919,303 @@ export const AdminDashboard: React.FC = () => {
         </ModalBody>
         <ModalFooter>
           <Button color="secondary" onClick={() => setShowIcebreakersModal(false)}>
+            Close
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* Badges Management Modal */}
+      <Modal isOpen={showBadgesModal} toggle={() => setShowBadgesModal(false)} size="lg">
+        <ModalHeader toggle={() => setShowBadgesModal(false)}>
+          🏆 Manage Badges
+        </ModalHeader>
+        <ModalBody>
+          <FormGroup>
+            <Label>Badge Name</Label>
+            <Input
+              type="text"
+              value={newBadge.name}
+              onChange={e => setNewBadge({...newBadge, name: e.target.value})}
+              placeholder="e.g., Ice Breaker"
+            />
+          </FormGroup>
+          <FormGroup>
+            <Label>Icon (emoji)</Label>
+            <Input
+              type="text"
+              value={newBadge.icon}
+              onChange={e => setNewBadge({...newBadge, icon: e.target.value})}
+              placeholder="e.g., 🏆"
+            />
+          </FormGroup>
+          <FormGroup>
+            <Label>Description</Label>
+            <Input
+              type="textarea"
+              value={newBadge.description}
+              onChange={e => setNewBadge({...newBadge, description: e.target.value})}
+              placeholder="e.g., Sent your first message"
+            />
+          </FormGroup>
+          <FormGroup>
+            <Label>Type</Label>
+            <Input
+              type="select"
+              value={newBadge.type}
+              onChange={e => setNewBadge({...newBadge, type: e.target.value as BadgeType})}
+            >
+              <option value="ice_breaker">Ice Breaker</option>
+              <option value="all_star">All Star</option>
+              <option value="on_fire">On Fire</option>
+              <option value="party_starter">Party Starter</option>
+              <option value="verified">Verified</option>
+              <option value="popular">Popular</option>
+              <option value="super_liker">Super Liker</option>
+              <option value="chatterbox">Chatterbox</option>
+            </Input>
+          </FormGroup>
+          <FormGroup>
+            <Label>Required XP (optional)</Label>
+            <Input
+              type="number"
+              value={newBadge.requiredXP}
+              onChange={e => setNewBadge({...newBadge, requiredXP: parseInt(e.target.value) || 0})}
+            />
+          </FormGroup>
+          <Button
+            color="primary"
+            className="mt-2"
+            onClick={handleAddBadge}
+            disabled={!newBadge.name.trim() || !newBadge.description.trim()}
+          >
+            Add Badge
+          </Button>
+
+          <hr className="my-4" />
+
+          <Label>Existing Badges</Label>
+          {badges.length === 0 ? (
+            <p className="text-muted mt-2">No badges added yet.</p>
+          ) : (
+            <Table striped bordered hover responsive className="mt-2">
+              <thead>
+                <tr>
+                  <th>Icon</th>
+                  <th>Name</th>
+                  <th>Type</th>
+                  <th>Active</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {badges.map(badge => (
+                  <tr key={badge.id}>
+                    <td>{badge.icon}</td>
+                    <td>{badge.name}</td>
+                    <td>{badge.type}</td>
+                    <td>
+                      <SwitchInput
+                        type="switch"
+                        checked={badge.isActive}
+                        onChange={() => handleToggleBadgeActive(badge)}
+                      />
+                    </td>
+                    <td>
+                      <Button
+                        color="danger"
+                        size="sm"
+                        onClick={() => handleDeleteBadge(badge.id)}
+                      >
+                        Delete
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          )}
+        </ModalBody>
+        <ModalFooter>
+          <Button color="secondary" onClick={() => setShowBadgesModal(false)}>
+            Close
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* Daily Questions Management Modal */}
+      <Modal isOpen={showDailyQuestionsModal} toggle={() => setShowDailyQuestionsModal(false)} size="lg">
+        <ModalHeader toggle={() => setShowDailyQuestionsModal(false)}>
+          📅 Manage Daily Questions
+        </ModalHeader>
+        <ModalBody>
+          <FormGroup>
+            <Label>Question</Label>
+            <Input
+              type="textarea"
+              value={newDailyQuestion.question}
+              onChange={e => setNewDailyQuestion({...newDailyQuestion, question: e.target.value})}
+              placeholder="e.g., What's your love language?"
+            />
+          </FormGroup>
+          <FormGroup>
+            <Label>Options (comma-separated, optional)</Label>
+            <Input
+              type="text"
+              value={newDailyQuestion.options}
+              onChange={e => setNewDailyQuestion({...newDailyQuestion, options: e.target.value})}
+              placeholder="e.g., Words of Affirmation, Quality Time, Acts of Service"
+            />
+          </FormGroup>
+          <FormGroup>
+            <Label>Active Date (optional - leave empty for random rotation)</Label>
+            <Input
+              type="date"
+              value={newDailyQuestion.activeDate}
+              onChange={e => setNewDailyQuestion({...newDailyQuestion, activeDate: e.target.value})}
+            />
+          </FormGroup>
+          <Button
+            color="primary"
+            className="mt-2"
+            onClick={handleAddDailyQuestion}
+            disabled={!newDailyQuestion.question.trim()}
+          >
+            Add Daily Question
+          </Button>
+
+          <hr className="my-4" />
+
+          <Label>Existing Daily Questions</Label>
+          {dailyQuestions.length === 0 ? (
+            <p className="text-muted mt-2">No daily questions added yet.</p>
+          ) : (
+            <div className="mt-2">
+              {dailyQuestions.map(question => (
+                <div key={question.id} className="d-flex justify-content-between align-items-center p-2 mb-2 bg-secondary bg-opacity-25 rounded">
+                  <div>
+                    <div>{question.question}</div>
+                    {question.options && question.options.length > 0 && (
+                      <small className="text-muted">Options: {question.options.join(', ')}</small>
+                    )}
+                    {question.activeDate && (
+                      <small className="text-info ms-2">📅 {question.activeDate}</small>
+                    )}
+                  </div>
+                  <div className="d-flex gap-2">
+                    <SwitchInput
+                      type="switch"
+                      checked={question.isActive}
+                      onChange={() => handleToggleDailyQuestionActive(question)}
+                    />
+                    <Button size="sm" color="danger" onClick={() => handleDeleteDailyQuestion(question.id)}>
+                      Delete
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </ModalBody>
+        <ModalFooter>
+          <Button color="secondary" onClick={() => setShowDailyQuestionsModal(false)}>
+            Close
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* Chat Games Management Modal */}
+      <Modal isOpen={showChatGamesModal} toggle={() => setShowChatGamesModal(false)} size="lg">
+        <ModalHeader toggle={() => setShowChatGamesModal(false)}>
+          🎮 Manage Chat Games
+        </ModalHeader>
+        <ModalBody>
+          <FormGroup>
+            <Label>Game Type</Label>
+            <Input
+              type="select"
+              value={newChatGame.type}
+              onChange={e => setNewChatGame({...newChatGame, type: e.target.value as GameType})}
+            >
+              <option value="truth_or_dare">Truth or Dare</option>
+              <option value="would_you_rather">Would You Rather</option>
+              <option value="compatibility_quiz">Compatibility Quiz</option>
+              <option value="this_or_that">This or That</option>
+            </Input>
+          </FormGroup>
+          <FormGroup>
+            <Label>Title</Label>
+            <Input
+              type="text"
+              value={newChatGame.title}
+              onChange={e => setNewChatGame({...newChatGame, title: e.target.value})}
+              placeholder="e.g., Fun Would You Rather"
+            />
+          </FormGroup>
+          <FormGroup>
+            <Label>Questions (one per line, use | for options)</Label>
+            <Input
+              type="textarea"
+              rows={5}
+              value={newChatGame.questions}
+              onChange={e => setNewChatGame({...newChatGame, questions: e.target.value})}
+              placeholder={`Example:\nWould you rather travel to the past or future?|Past,Future\nWould you rather have super strength or super speed?|Strength,Speed`}
+            />
+          </FormGroup>
+          <Button
+            color="primary"
+            className="mt-2"
+            onClick={handleAddChatGame}
+            disabled={!newChatGame.title.trim() || !newChatGame.questions.trim()}
+          >
+            Add Chat Game
+          </Button>
+
+          <hr className="my-4" />
+
+          <Label>Existing Chat Games</Label>
+          {chatGames.length === 0 ? (
+            <p className="text-muted mt-2">No chat games added yet.</p>
+          ) : (
+            <Table striped bordered hover responsive className="mt-2">
+              <thead>
+                <tr>
+                  <th>Title</th>
+                  <th>Type</th>
+                  <th>Questions</th>
+                  <th>Active</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {chatGames.map(game => (
+                  <tr key={game.id}>
+                    <td>{game.title}</td>
+                    <td>{game.type.replace(/_/g, ' ')}</td>
+                    <td>{game.questions.length} questions</td>
+                    <td>
+                      <SwitchInput
+                        type="switch"
+                        checked={game.isActive}
+                        onChange={() => handleToggleChatGameActive(game)}
+                      />
+                    </td>
+                    <td>
+                      <Button
+                        color="danger"
+                        size="sm"
+                        onClick={() => handleDeleteChatGame(game.id)}
+                      >
+                        Delete
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          )}
+        </ModalBody>
+        <ModalFooter>
+          <Button color="secondary" onClick={() => setShowChatGamesModal(false)}>
             Close
           </Button>
         </ModalFooter>

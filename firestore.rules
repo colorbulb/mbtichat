@@ -148,6 +148,35 @@ service cloud.firestore {
     }
     
     // ============================================
+    // GAMIFICATION COLLECTIONS
+    // ============================================
+    
+    // Badge templates - all authenticated users can read, admins can write
+    match /badge_templates/{templateId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+    
+    // Daily questions - all authenticated users can read, admins can write
+    match /daily_questions/{questionId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+    
+    // Chat game templates - all authenticated users can read, admins can write
+    match /chat_game_templates/{templateId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+    
+    // Super likes - authenticated users can read/write their own
+    match /super_likes/{likeId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if false;
+    }
+    
+    // ============================================
     // DEFAULT DENY RULE
     // ============================================
     
