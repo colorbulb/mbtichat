@@ -24,7 +24,7 @@
  * - Ensure translation service is fast to avoid lingering loading states
  */
 import React, { useState, useEffect, useRef } from 'react';
-import { User, ChatMessage, Event, PrivateDate, IcebreakerTemplate, ChatStats } from '../types';
+import { User, ChatMessage, Event, PrivateDate, IcebreakerTemplate, ChatStats, ChatGameTemplate, GameType, ChatGameData } from '../types';
 import { store } from '../services/store';
 import { translateMessage, superTranslateMessage, getAISuggestions } from '../services/gemini';
 import { PhotoModal } from './PhotoModal';
@@ -94,6 +94,8 @@ export const ChatScreen: React.FC<{
   const [icebreakers, setIcebreakers] = useState<IcebreakerTemplate[]>([]);
   const [showIcebreakerModal, setShowIcebreakerModal] = useState(false);
   const [chatStats, setChatStats] = useState<ChatStats | null>(null);
+  const [chatGames, setChatGames] = useState<ChatGameTemplate[]>([]);
+  const [showGamesModal, setShowGamesModal] = useState(false);
   
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -189,6 +191,17 @@ export const ChatScreen: React.FC<{
       }
     };
     loadIcebreakers();
+
+    // Load chat games
+    const loadChatGames = async () => {
+      try {
+        const games = await store.getActiveChatGames();
+        setChatGames(games);
+      } catch (error) {
+        console.error('Error loading chat games:', error);
+      }
+    };
+    loadChatGames();
 
     // Subscribe to chat stats (for milestones)
     const unsubscribeStats = store.subscribeToChatStats(chatId, (stats) => {
@@ -866,7 +879,7 @@ export const ChatScreen: React.FC<{
       >
         {showStickers && (
           <div 
-            className="fixed left-2 right-2 bottom-20 sm:bottom-24 bg-gray-900/95 border border-gray-600 rounded-xl p-2 sm:p-3 shadow-2xl flex gap-2 overflow-x-auto z-50"
+            className="left-2 right-2 bottom-32 sm:bottom-36 bg-gray-900/95 border border-gray-600 rounded-xl p-2 sm:p-3 shadow-2xl flex gap-2 overflow-x-auto z-50"
             style={{
               WebkitTransform: 'translateZ(0)',
               transform: 'translateZ(0)',
@@ -902,7 +915,7 @@ export const ChatScreen: React.FC<{
         )}
         {showStarters && conversationStarters.length > 0 && (
           <div 
-            className="fixed left-2 right-2 bottom-20 sm:bottom-24 dating-card rounded-xl p-3 sm:p-4 shadow-2xl z-50"
+            className="left-2 right-2 bottom-32 sm:bottom-36 dating-card rounded-xl p-3 sm:p-4 shadow-2xl z-50"
             style={{
               WebkitTransform: 'translateZ(0)',
               transform: 'translateZ(0)',
@@ -928,7 +941,7 @@ export const ChatScreen: React.FC<{
         {/* Icebreaker modal */}
         {showIcebreakerModal && icebreakers.length > 0 && (
           <div
-            className="fixed left-2 right-2 bottom-20 sm:bottom-24 dating-card rounded-xl p-3 sm:p-4 shadow-2xl z-50"
+            className="left-2 right-2 bottom-32 sm:bottom-36 dating-card rounded-xl p-3 sm:p-4 shadow-2xl z-50"
             style={{
               WebkitTransform: 'translateZ(0)',
               transform: 'translateZ(0)',
@@ -966,9 +979,69 @@ export const ChatScreen: React.FC<{
           </div>
         )}
 
+        {/* Chat Games modal */}
+        {showGamesModal && chatGames.length > 0 && (
+          <div
+            className="left-2 right-2 bottom-32 sm:bottom-36 dating-card rounded-xl p-3 sm:p-4 shadow-2xl z-50"
+            style={{
+              WebkitTransform: 'translateZ(0)',
+              transform: 'translateZ(0)',
+              willChange: 'transform',
+              pointerEvents: 'auto'
+            }}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-xs sm:text-sm text-pink-300 font-semibold flex items-center gap-2">
+                <span>🎮 Fun Games to Play Together</span>
+              </div>
+              <button
+                onClick={() => setShowGamesModal(false)}
+                className="text-xs text-gray-400 hover:text-white"
+              >
+                Close
+              </button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-64 overflow-y-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
+              {chatGames.map(game => (
+                <button
+                  key={game.id}
+                  onClick={async () => {
+                    // Pick a random question from the game
+                    const randomIndex = Math.floor(Math.random() * game.questions.length);
+                    const randomQ = game.questions[randomIndex];
+                    // Create a unique question ID using game ID and question index
+                    const uniqueQuestionId = `${game.id}_q${randomIndex}_${Date.now()}`;
+                    await store.sendGameMessage(chatId, currentUser.id, game.type, {
+                      questionId: uniqueQuestionId,
+                      question: randomQ.question,
+                      options: randomQ.options
+                    });
+                    setShowGamesModal(false);
+                    showToast(`Started ${game.title}!`, 'success');
+                  }}
+                  className="text-left text-xs sm:text-sm bg-white/5 hover:bg-white/15 border border-white/15 rounded-lg p-3 transition-all text-white"
+                >
+                  <div className="font-semibold mb-1 flex items-center gap-2">
+                    <span>
+                      {game.type === 'truth_or_dare' && '🎲'}
+                      {game.type === 'would_you_rather' && '🤔'}
+                      {game.type === 'compatibility_quiz' && '💕'}
+                      {game.type === 'this_or_that' && '⚡'}
+                    </span>
+                    {game.title}
+                  </div>
+                  <div className="text-[11px] text-gray-300">
+                    {game.questions.length} questions • {game.type.replace(/_/g, ' ')}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {showPhrases && phrases.length > 0 && (
           <div 
-            className="fixed left-2 right-2 bottom-20 sm:bottom-24 bg-gray-800 border border-gray-600 rounded-xl p-3 sm:p-4 shadow-2xl z-50"
+            className="fixed left-2 right-2 bottom-32 sm:bottom-36 bg-gray-800 border border-gray-600 rounded-xl p-3 sm:p-4 shadow-2xl z-50"
             style={{
               WebkitTransform: 'translateZ(0)',
               transform: 'translateZ(0)',
@@ -1125,6 +1198,24 @@ export const ChatScreen: React.FC<{
               title="Create Private Date"
             >
               💕
+            </button>
+            <button 
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setShowGamesModal(prev => !prev);
+                setShowStickers(false);
+                setShowPhrases(false);
+                setShowStarters(false);
+                setShowIcebreakerModal(false);
+              }}
+              className={`text-gray-400 active:text-white p-2 sm:p-2.5 text-xl sm:text-2xl touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center flex-shrink-0 ${chatGames.length === 0 ? 'opacity-30' : ''}`}
+              style={{ touchAction: 'manipulation' }}
+              title="Fun Games"
+              disabled={chatGames.length === 0}
+            >
+              🎮
             </button>
             {/* Small inline hints so we can visually confirm state even if overlays are clipped */}
             {showStickers && (
