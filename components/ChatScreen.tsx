@@ -879,7 +879,7 @@ export const ChatScreen: React.FC<{
       >
         {showStickers && (
           <div 
-            className="fixed left-2 right-2 bottom-20 sm:bottom-24 bg-gray-900/95 border border-gray-600 rounded-xl p-2 sm:p-3 shadow-2xl flex gap-2 overflow-x-auto z-50"
+            className="fixed left-2 right-2 bottom-32 sm:bottom-36 bg-gray-900/95 border border-gray-600 rounded-xl p-2 sm:p-3 shadow-2xl flex gap-2 overflow-x-auto z-50"
             style={{
               WebkitTransform: 'translateZ(0)',
               transform: 'translateZ(0)',
@@ -915,7 +915,7 @@ export const ChatScreen: React.FC<{
         )}
         {showStarters && conversationStarters.length > 0 && (
           <div 
-            className="fixed left-2 right-2 bottom-20 sm:bottom-24 dating-card rounded-xl p-3 sm:p-4 shadow-2xl z-50"
+            className="fixed left-2 right-2 bottom-32 sm:bottom-36 dating-card rounded-xl p-3 sm:p-4 shadow-2xl z-50"
             style={{
               WebkitTransform: 'translateZ(0)',
               transform: 'translateZ(0)',
@@ -941,7 +941,7 @@ export const ChatScreen: React.FC<{
         {/* Icebreaker modal */}
         {showIcebreakerModal && icebreakers.length > 0 && (
           <div
-            className="fixed left-2 right-2 bottom-20 sm:bottom-24 dating-card rounded-xl p-3 sm:p-4 shadow-2xl z-50"
+            className="fixed left-2 right-2 bottom-32 sm:bottom-36 dating-card rounded-xl p-3 sm:p-4 shadow-2xl z-50"
             style={{
               WebkitTransform: 'translateZ(0)',
               transform: 'translateZ(0)',
@@ -982,7 +982,7 @@ export const ChatScreen: React.FC<{
         {/* Chat Games modal */}
         {showGamesModal && chatGames.length > 0 && (
           <div
-            className="fixed left-2 right-2 bottom-20 sm:bottom-24 dating-card rounded-xl p-3 sm:p-4 shadow-2xl z-50"
+            className="fixed left-2 right-2 bottom-32 sm:bottom-36 dating-card rounded-xl p-3 sm:p-4 shadow-2xl z-50"
             style={{
               WebkitTransform: 'translateZ(0)',
               transform: 'translateZ(0)',
@@ -1041,7 +1041,7 @@ export const ChatScreen: React.FC<{
 
         {showPhrases && phrases.length > 0 && (
           <div 
-            className="fixed left-2 right-2 bottom-20 sm:bottom-24 bg-gray-800 border border-gray-600 rounded-xl p-3 sm:p-4 shadow-2xl z-50"
+            className="fixed left-2 right-2 bottom-32 sm:bottom-36 bg-gray-800 border border-gray-600 rounded-xl p-3 sm:p-4 shadow-2xl z-50"
             style={{
               WebkitTransform: 'translateZ(0)',
               transform: 'translateZ(0)',
