@@ -74,8 +74,8 @@ else
   git commit -m "$COMMIT_MSG" || echo "Nothing to commit or commit failed"
 fi
 
-echo "🚀 Pushing to git..."
-git push origin main || echo "Push failed or nothing to push"
+echo "🚀 Pushing to git (overriding remote)..."
+git push --force-with-lease origin main || git push --force origin main || echo "Push failed"
 
 echo "🔥 Deploying to Firebase..."
 firebase deploy

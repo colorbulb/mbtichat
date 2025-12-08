@@ -3,6 +3,7 @@ import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { getAnalytics } from 'firebase/analytics';
+import { getFunctions } from 'firebase/functions';
 
 // Firebase configuration
 const firebaseConfig = {
@@ -27,5 +28,6 @@ setPersistence(auth, browserLocalPersistence).catch((error) => {
 const db = getFirestore(app);
 const storage = getStorage(app);
 const analytics = getAnalytics(app);
+const functions = getFunctions(app);
 
-export { auth, db, storage, analytics };
+export { auth, db, storage, analytics, functions };

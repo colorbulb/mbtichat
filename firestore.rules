@@ -12,18 +12,19 @@ service cloud.firestore {
     }
     
     // Helper function to check if user is admin
-    // MBTI Chat 2 uses isAdmin boolean field
-    // Safely handles missing user documents
+    // Supports both projects: isAdmin (mbtichat2) and role='admin' (twoplayergame)
     function isAdmin() {
       return isAuthenticated() && 
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+        (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+        );
     }
     
     // ============================================
-    // USERS COLLECTION
+    // USERS COLLECTION (Shared by both projects)
     // ============================================
-    // MBTI Chat 2: All authenticated users can read all profiles (for user discovery)
     match /users/{userId} {
       // All authenticated users can read any profile (required for user discovery)
       allow read: if isAuthenticated();
@@ -32,19 +33,20 @@ service cloud.firestore {
       allow create: if isAuthenticated() && request.auth.uid == userId;
       
       // Updates:
-      // - Admins can update any user document
-      // - A user can update their own document (for presence/profile changes) BUT
-      //   cannot escalate privileges (cannot change isAdmin field)
+      // - Admins can update any user document (including password reset)
+      // - A user can update their own document BUT cannot escalate privileges
       allow update: if
         isAdmin() ||
         (
           isAuthenticated() &&
           request.auth.uid == userId &&
-          // Prevent privilege escalation: if isAdmin is in the update, it must match existing value
-          // If it's not in the update (partial update), that's fine - we're not changing it
+          // Prevent privilege escalation
           (
-            !('isAdmin' in request.resource.data) || 
-            request.resource.data.isAdmin == resource.data.get('isAdmin', false)
+            (!('isAdmin' in request.resource.data) || 
+             request.resource.data.isAdmin == resource.data.get('isAdmin', false)) &&
+            (!('role' in request.resource.data) || 
+             (request.resource.data.role == resource.data.get('role', 'user') &&
+              request.resource.data.role != 'admin'))
           )
         );
       
@@ -53,55 +55,51 @@ service cloud.firestore {
     }
     
     // ============================================
-    // MBTI CHAT 2 PROJECT COLLECTIONS
+    // SHARED COLLECTIONS (Both projects)
     // ============================================
     
-    // Chats collection - all authenticated users can read and write
-    // Used for user-to-user conversations
+    // Chats collection
     match /chats/{chatId} {
       allow read, write: if isAuthenticated();
       
-      // Messages subcollection - all authenticated users can read and write
-      // Used for individual messages within chats
       match /messages/{messageId} {
         allow read, write: if isAuthenticated();
       }
     }
     
-    // Personality phrases - all authenticated users can read, admins can write
-    // Used for MBTI-specific phrases
+    // Personality phrases
     match /personality_phrases/{mbti} {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
     }
     
-    // System data - hobbies and red flags
+    // System data (hobbies, red flags)
     match /system_data/{document} {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
     }
     
-    // Audio questions - all authenticated users can read, admins can write
+    // Audio questions
     match /audio_questions/{questionId} {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
     }
     
-    // Dating categories - all authenticated users can read, admins can write
+    // Dating categories
     match /dating_categories/{categoryId} {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
     }
     
-    // Events - all authenticated users can read and write
+    // Events
     match /events/{eventId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
-      allow update: if isAuthenticated(); // Users can join events
+      allow update: if isAuthenticated();
       allow delete: if isAdmin();
     }
     
-    // User action logs - users can create, admins can read
+    // User action logs
     match /user_action_logs/{logId} {
       allow create: if isAuthenticated();
       allow read: if isAdmin();
@@ -112,21 +110,21 @@ service cloud.firestore {
     // ADMIN TRACKING COLLECTIONS
     // ============================================
     
-    // API calls tracking - authenticated users can create, admins can read
+    // API calls tracking
     match /api_calls/{callId} {
       allow create: if isAuthenticated();
       allow read: if isAdmin();
       allow update, delete: if false;
     }
     
-    // Login history - authenticated users can create, admins can read
+    // Login history
     match /login_history/{loginId} {
       allow create: if isAuthenticated();
       allow read: if isAdmin();
       allow update, delete: if false;
     }
     
-    // Admin activities - admins can read/write
+    // Admin activities
     match /admin_activities/{activityId} {
       allow read, write: if isAdmin();
     }
@@ -135,14 +133,13 @@ service cloud.firestore {
     // ICEBREAKERS & CHAT STATS
     // ============================================
 
-    // Icebreaker templates - all authenticated users can read, admins can write
+    // Icebreaker templates
     match /icebreaker_templates/{templateId} {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
     }
 
-    // Chat stats - used for conversation milestones
-    // Any authenticated user can read/write for now (app enforces participant checks)
+    // Chat stats
     match /chat_stats/{chatId} {
       allow read, write: if isAuthenticated();
     }
@@ -151,29 +148,42 @@ service cloud.firestore {
     // GAMIFICATION COLLECTIONS
     // ============================================
     
-    // Badge templates - all authenticated users can read, admins can write
+    // Badge templates
     match /badge_templates/{templateId} {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
     }
     
-    // Daily questions - all authenticated users can read, admins can write
+    // Daily questions
     match /daily_questions/{questionId} {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
     }
     
-    // Chat game templates - all authenticated users can read, admins can write
+    // Chat game templates
     match /chat_game_templates/{templateId} {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
     }
     
-    // Super likes - authenticated users can read/write their own
+    // Super likes
     match /super_likes/{likeId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
       allow update, delete: if false;
+    }
+    
+    // ============================================
+    // GAME PLATFORM COLLECTIONS (twoplayergame only)
+    // ============================================
+    
+    // Game rooms for multiplayer games
+    match /game_rooms/{gameType}/{roomId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAdmin() || 
+        (isAuthenticated() && resource.data.host == request.auth.uid);
     }
     
     // ============================================

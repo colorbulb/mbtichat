@@ -1,6 +1,6 @@
 import { User, ChatRoom, ChatMessage, MessageType, IcebreakerTemplate, ChatStats, BadgeTemplate, DailyQuestion, ChatGameTemplate, SuperLike, CompatibilityResult, GameType, ChatGameData } from '../types';
 import { MBTI_PROFILES } from '../constants';
-import { auth, db, storage } from './firebase';
+import { auth, db, storage, functions } from './firebase';
 import { 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
@@ -34,6 +34,7 @@ import {
   getDownloadURL,
   uploadString
 } from 'firebase/storage';
+import { httpsCallable } from 'firebase/functions';
 import imageCompression from 'browser-image-compression';
 
 // Helper to calculate age from birthdate
@@ -2752,6 +2753,40 @@ class FirebaseStore {
     } catch (error: any) {
       console.error('Answer game message error:', error);
       throw error;
+    }
+  }
+
+  // --- Admin Functions ---
+
+  /**
+   * Admin function to directly reset a user's password
+   * Uses Firebase Cloud Function with Admin SDK
+   */
+  async adminResetPassword(userId: string, newPassword: string): Promise<void> {
+    try {
+      const resetPasswordFn = httpsCallable(functions, 'adminResetPassword');
+      const result = await resetPasswordFn({ userId, newPassword });
+      console.log('Password reset result:', result.data);
+    } catch (error: any) {
+      console.error('Error resetting password:', error);
+      throw new Error(error.message || 'Failed to reset password');
+    }
+  }
+
+  /**
+   * Admin function to send password reset email
+   * Uses Firebase Cloud Function with Admin SDK
+   */
+  async adminSendPasswordResetEmail(email: string): Promise<string> {
+    try {
+      const sendResetEmailFn = httpsCallable(functions, 'adminSendPasswordResetEmail');
+      const result = await sendResetEmailFn({ email });
+      const data = result.data as { success: boolean; message: string; resetLink: string };
+      console.log('Password reset email sent:', data.message);
+      return data.resetLink;
+    } catch (error: any) {
+      console.error('Error sending password reset email:', error);
+      throw new Error(error.message || 'Failed to send password reset email');
     }
   }
 }

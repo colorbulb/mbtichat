@@ -229,6 +229,62 @@ export const AdminDashboard: React.FC = () => {
   };
 
   /**
+   * Admin function to reset a user's password directly
+   */
+  const handleResetPassword = async (userId: string, username: string, email: string) => {
+    const newPassword = prompt(`Enter new password for ${username}:\n(Minimum 6 characters)`);
+    if (!newPassword) return;
+    
+    if (newPassword.length < 6) {
+      setErrorMsg('Password must be at least 6 characters long');
+      setTimeout(() => setErrorMsg(''), 5000);
+      return;
+    }
+    
+    setErrorMsg('');
+    setLoading(true);
+    try {
+      await store.adminResetPassword(userId, newPassword);
+      setSuccessMsg(`Password reset successfully for ${username}!`);
+      setTimeout(() => setSuccessMsg(''), 3000);
+    } catch (error: any) {
+      setErrorMsg(`Error resetting password: ${error.message}`);
+      setTimeout(() => setErrorMsg(''), 5000);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Admin function to send password reset email
+   */
+  const handleSendPasswordResetEmail = async (email: string, username: string) => {
+    if (!email) {
+      setErrorMsg('User has no email address');
+      setTimeout(() => setErrorMsg(''), 5000);
+      return;
+    }
+    
+    if (!confirm(`Send password reset email to ${email}?`)) {
+      return;
+    }
+    
+    setErrorMsg('');
+    setLoading(true);
+    try {
+      const resetLink = await store.adminSendPasswordResetEmail(email);
+      setSuccessMsg(`Password reset email sent to ${email}!`);
+      console.log('Reset link:', resetLink); // Admin can see the link in console
+      setTimeout(() => setSuccessMsg(''), 3000);
+    } catch (error: any) {
+      setErrorMsg(`Error sending reset email: ${error.message}`);
+      setTimeout(() => setErrorMsg(''), 5000);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
    * Opens edit modal and populates form with user data
    * Admin can edit: username, MBTI, gender, birthdate, API call limit
    */
@@ -1223,6 +1279,15 @@ export const AdminDashboard: React.FC = () => {
                                   disabled={loading}
                                 >
                                   Edit
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  color="warning"
+                                  onClick={() => handleResetPassword(u.id, u.username, u.email)}
+                                  disabled={loading}
+                                  title="Reset password directly"
+                                >
+                                  Reset PW
                                 </Button>
                                 <Button
                                   size="sm"
