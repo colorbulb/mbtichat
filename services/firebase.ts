@@ -4,6 +4,7 @@ import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { getAnalytics } from 'firebase/analytics';
 import { getFunctions } from 'firebase/functions';
+import { getMessaging, isSupported as isMessagingSupported } from 'firebase/messaging';
 
 // Firebase configuration
 const firebaseConfig = {
@@ -30,4 +31,14 @@ const storage = getStorage(app);
 const analytics = getAnalytics(app);
 const functions = getFunctions(app);
 
-export { auth, db, storage, analytics, functions };
+// Initialize messaging only if supported
+let messaging: ReturnType<typeof getMessaging> | null = null;
+isMessagingSupported().then((supported) => {
+  if (supported) {
+    messaging = getMessaging(app);
+  }
+}).catch((error) => {
+  console.error('Error checking messaging support:', error);
+});
+
+export { auth, db, storage, analytics, functions, messaging };

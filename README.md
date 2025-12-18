@@ -42,11 +42,47 @@ View your app in AI Studio: https://ai.studio/apps/drive/1Of5yDmtYJRdzH_cOj4N69b
 6. Build for production:
    `npm run build`
 
+## iOS App & TestFlight Deployment
+
+**NEW:** This app now supports native iOS deployment with push notifications!
+
+### Quick Start for iOS
+```bash
+# Build and open in Xcode
+npm run ios:build
+
+# Or step by step
+npm run build          # Build web app
+npx cap sync ios       # Sync with iOS
+npm run cap:open:ios   # Open in Xcode
+```
+
+### Setup Guide
+- **Complete Guide:** See `IOS_TESTFLIGHT_GUIDE.md` for detailed step-by-step instructions
+- **Quick Reference:** See `PUSH_NOTIFICATIONS_QUICKSTART.md` for commands and tips
+- **Checklist:** Use `TESTFLIGHT_CHECKLIST.md` to track your progress
+- **Implementation Notes:** See `IMPLEMENTATION_NOTES.md` for technical details
+
+### Prerequisites for iOS
+1. macOS with Xcode installed
+2. Apple Developer Account ($99/year)
+3. Firebase Cloud Messaging configured with APNs
+4. CocoaPods: `sudo gem install cocoapods`
+
+### Helper Script
+Run the setup helper script:
+```bash
+bash scripts/ios-setup.sh
+```
+
 ## Features
 
 - **User Authentication**: Firebase Auth with email/password
 - **User Management**: Create, edit, delete users (admin only)
 - **User Roles**: Users are created with role "user", admin has role "admin"
 - **Admin User Creation**: Admin (lc@ne.ai) can create users that are linked to Firebase Authentication and have a Firestore document with role "user"
+- **Push Notifications**: Real-time notifications for messages and activities (iOS & Web)
+- **Native iOS App**: Full iOS app support via Capacitor
+- **Background Notifications**: Receive notifications when app is closed
 - **Firestore Integration**: All user data stored in Firestore
 - **MBTI Chat**: Chat with translation using Gemini API

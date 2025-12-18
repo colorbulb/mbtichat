@@ -11,6 +11,7 @@ import { ChatListScreen } from './components/ChatListScreen';
 import { EventsScreen } from './components/EventsScreen';
 import { ToastProvider } from './components/Toast';
 import { ViewProfileScreen } from './components/ViewProfileScreen';
+import { useNotifications } from './hooks/useNotifications';
 
 // Simple build/version tag – bump this string when deploying
 const BUILD_VERSION = 'v4.0.3';
@@ -83,6 +84,9 @@ const AppRoutes: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Initialize push notifications for the current user
+  useNotifications(currentUser?.id || null);
 
   useEffect(() => {
     const initAuth = async () => {
